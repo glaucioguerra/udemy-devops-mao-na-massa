@@ -1,0 +1,13 @@
+Vagrant.configure("2") do |config|
+  
+  config.vm.box = 'centos/7'
+  config.vm.hostname = 'jenkins'
+  config.vm.network 'forwarded_port', guest: 8080, host: 8080, hostip: '127.0.0.1'
+  config.vm.network 'forwarded_port', guest: 8091, host: 8091, hostip: '127.0.0.1'
+  config.vm.network "private_network", ip: "192.168.1.5"
+  config.vm.provision 'shell', path: 'provision.sh'
+  config.vm.provider 'virtualbox' do |v| 
+    v.memory =2048
+  end
+  
+end

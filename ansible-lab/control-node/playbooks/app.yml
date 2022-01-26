@@ -1,0 +1,74 @@
+---
+- name: Configurar servidor de aplicação Java
+  hosts: app01
+
+  user: vagrant
+  become: yes
+
+  vars:
+    - dbhost: "db01"
+    - dbname: "notes"
+    - dbusername: "notesapp"
+    - dbpassword: "devopsmaonamassa"
+  tasks:
+    - name: Adicionar usuario de app
+      user:
+        name: app
+        comment: Usuario de aplicação
+        uid: 500
+    - name: Instalação do Maven
+      yum:
+        name: maven
+        state: latest
+    - name: Instalação do Java
+      yum:
+        name: java-1.8.0-openjdk
+        state: latest
+    - name: Criação do diretório de app
+      file:
+        path: /opt/notes
+        state: directory
+        owner: app
+        group: app
+    - name: instalacao do git client
+      yum:
+        name: git
+        state: latest
+    - name: Clone do repositório Notes - app
+      git:
+        repo: 'https://github.com/callicoder/spring-boot-mysql-rest-api-tutorial.git'
+        dest: /opt/notes
+        clone: yes
+        force: yes
+    - name: Configurar arquivo de propriedades para camada de banco de dados
+      template:
+        src: application.properties
+        dest: /opt/notes/src/main/resources/application.properties
+    - name: Gerar pacote da aplicação
+      command: mvn -f /opt/notes/pom.xml package
+      become_user: app
+    - name: Registrar versao atual do pacote
+      shell:
+        cmd: mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | grep -v '\['
+        chdir: /opt/notes/
+      register: app_version
+    - name: Configurar serviço do Systemd
+      template:
+        src: etc/systemd/system/notes.service
+        dest: /etc/systemd/system/notes.service
+      notify: reload daemon
+    - name: Iniciar serviço notes
+      service:
+        name: notes
+        state: restarted
+  roles:
+      - configuracao-default-so
+  handlers:
+    - name: reload app
+      systemd:
+        state: restarted
+        daemon_reload: yes 
+        name: 'notes'
+    - name: reload daemon
+      systemd:
+        daemon_reexec: yes
